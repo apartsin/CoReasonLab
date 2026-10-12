@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI CoReasoning Lab — My Results</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="assets/logo.png">
+  <style>
+    /* Grade Distribution Cards */
+    .dist-card { text-align: center; }
+    .dist-card h4 { font-size: 15px; font-weight: 600; margin-bottom: 12px; color: var(--text); }
+    .overall-grade { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 50%; font-weight: 800; font-size: 28px; color: #fff; margin-bottom: 12px; }
+    .overall-grade.grade-A { background: var(--grade-a); }
+    .overall-grade.grade-B { background: var(--grade-b); }
+    .overall-grade.grade-C { background: var(--grade-c); }
+    .overall-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 14px; }
+
+    .stacked-bar { display: flex; height: 28px; border-radius: 6px; overflow: hidden; margin-bottom: 10px; }
+    .stacked-bar .seg { display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; min-width: 20px; transition: width .3s; }
+    .seg-a { background: var(--grade-a); }
+    .seg-b { background: var(--grade-b); }
+    .seg-c { background: var(--grade-c); }
+    .count-labels { font-size: 13px; color: var(--text-secondary); display: flex; justify-content: center; gap: 16px; }
+    .count-labels span { font-weight: 600; }
+    .count-labels .lbl-a { color: var(--grade-a); }
+    .count-labels .lbl-b { color: var(--grade-b); }
+    .count-labels .lbl-c { color: var(--grade-c); }
+
+    /* Trend Timeline */
+    .trend-card { padding: 24px; }
+    .trend-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 20px; }
+    .timeline { display: flex; align-items: flex-end; gap: 0; justify-content: space-between; position: relative; }
+    .timeline::before { content: ''; position: absolute; bottom: 44px; left: 24px; right: 24px; height: 2px; background: var(--border); z-index: 0; }
+    .tl-point { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; position: relative; z-index: 1; }
+    .tl-dots { display: flex; gap: 4px; margin-bottom: 8px; }
+    .tl-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+    .tl-dot.dot-a { background: var(--grade-a); }
+    .tl-dot.dot-b { background: var(--grade-b); }
+    .tl-dot.dot-c { background: var(--grade-c); }
+    .tl-label { font-size: 11px; color: var(--text-secondary); text-align: center; max-width: 80px; line-height: 1.3; }
+    .tl-legend { display: flex; gap: 16px; margin-top: 16px; justify-content: center; }
+    .tl-legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+    .tl-legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+    /* Table enhancements */
+    .phase-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; padding: 2px 8px; border-radius: 4px; }
+    .phase-1 { background: #e8eaf6; color: var(--primary); }
+    .phase-2 { background: #e0f2f1; color: var(--teal); }
+
+    .view-report-link { color: var(--primary); text-decoration: none; font-size: 13px; font-weight: 500; }
+    .view-report-link:hover { text-decoration: underline; }
+
+    .expandable-row { cursor: pointer; }
+    .expandable-row:hover td { background: #f0f1fa; }
+    .detail-row { display: none; }
+    .detail-row.open { display: table-row; }
+    .detail-content { padding: 16px 24px; }
+    .detail-content .detail-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .detail-mini-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; text-align: center; }
+    .detail-mini-card .mini-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+    .detail-mini-card .mini-feedback { font-size: 13px; color: var(--text); margin-top: 8px; text-align: left; }
+
+    /* Improvement Recommendations */
+    .reco-card { padding: 24px; }
+    .reco-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+    .reco-item { padding: 14px 16px; border-radius: var(--radius); margin-bottom: 10px; font-size: 14px; line-height: 1.6; }
+    .reco-item.reco-warning { background: #fff3e0; border-left: 4px solid var(--warning); color: #6d4c00; }
+    .reco-item.reco-info { background: #e8eaf6; border-left: 4px solid var(--primary); color: #1a237e; }
+    .reco-item.reco-success { background: #e8f5e9; border-left: 4px solid var(--success); color: #1b5e20; }
+    .reco-item strong { display: block; margin-bottom: 4px; font-size: 13px; text-transform: uppercase; letter-spacing: .3px; }
+    .reco-empty { text-align: center; padding: 20px; color: var(--text-secondary); font-size: 14px; }
+
+    .loading-state { text-align: center; padding: 48px 20px; color: var(--text-secondary); }
+    .loading-state p { margin-top: 8px; font-size: 14px; }
+    .error-state { text-align: center; padding: 48px 20px; color: var(--danger); }
+    .error-state p { margin-top: 8px; font-size: 14px; }
+    .loading-row td { text-align: center; padding: 32px; color: var(--text-secondary); }
+
+    @media (max-width: 768px) {
+      .detail-content .detail-grid { grid-template-columns: 1fr; }
+      .timeline { flex-wrap: wrap; gap: 16px; }
+      .timeline::before { display: none; }
+    }
+  </style>
+  <script src="content-compiled/all.js"></script>
+  <script src="content-loader.js"></script>
+  <script src="js/tooltips.js"></script>
+  <script src="js/api-client.js"></script>
+  <script src="js/user-header.js"></script>
+</head>
+<body>
+  <a href="#main-content" class="skip-to-content">Skip to content</a>
+  <header class="topnav">
+    <a href="index.html" class="logo"><img src="assets/logo.png" alt="Logo"> AI CoReasoning Lab</a>
+    <nav>
+      <a href="challenge-list.html" data-t="challenges">Challenges</a>
+      <a href="course-catalog.html" data-t="courses">Courses</a>
+      <a href="student-analytics.html" class="active" data-t="myResults">My Results</a>
+    </nav>
+    <div class="user-area">
+      <a href="interactive-guide.html" class="guide-link" title="Interactive Guide" data-t="guide">Guide</a>
+      <select class="lang-select" aria-label="Select language"><option value="en">EN</option><option value="he">HE</option><option value="fr">FR</option><option value="de">DE</option><option value="es">ES</option></select>
+      <span style="background:#e8eaf6;color:#1a237e;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px" data-t="student">Student</span>
+      <span id="userInstitution" style="font-size:12px;color:#1a237e;background:#e8eaf6;padding:2px 10px;border-radius:12px;font-weight:600;"></span>
+      <span id="userName">&mdash;</span>
+      <a href="profile.html" aria-label="User profile"><div class="avatar" id="userAvatar">?</div></a>
+      <a href="#" class="btn-logout" onclick="API.auth.logout().then(()=>window.location.href='/login.html').catch(()=>window.location.href='/login.html');return false;" style="margin-left:8px;background:var(--primary);border:none;border-radius:var(--radius);padding:5px 14px;font-size:12px;color:#fff;cursor:pointer;text-decoration:none;font-weight:600;" data-t="logout">Logout</a>
+    </div>
+  </header>
+
+  <main class="page" id="main-content">
+    <div class="page-header">
+      <h1 data-t="myResults" data-tooltip="analyticsOverview">My Results</h1>
+      <p data-t="myResultsDesc">Visual summary of your performance across all challenge runs</p>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar" id="analyticsFilters">
+      <select class="form-control" id="filterCourse" onchange="applyFilters()">
+        <option value="" data-t="allCourses">All Courses</option>
+      </select>
+      <select class="form-control" id="filterType" onchange="applyFilters()">
+        <option value="" data-t="allTypes">All Types</option>
+        <option value="practice" data-t="practice">Practice</option>
+        <option value="assessment" data-t="assessment">Assessment</option>
+      </select>
+      <select class="form-control" id="filterGrade" onchange="applyFilters()">
+        <option value="" data-t="allGrades">All Grades</option>
+        <option value="A">A</option>
+        <option value="B">B</option>
+        <option value="C">C</option>
+      </select>
+      <span id="filterCount" style="font-size:13px;color:var(--text-secondary);margin-left:auto;"></span>
+    </div>
+
+    <!-- Grade Distribution Charts -->
+    <div class="grid grid-3" id="gradeDistSection">
+      <div class="card dist-card" id="distFraming">
+        <h4 data-t="framingDistribution">Framing Distribution</h4>
+        <div class="overall-grade">-</div>
+        <div class="overall-label" data-t="mostCommonGrade">Most Common Grade</div>
+        <div class="stacked-bar"><div class="seg" style="width:100%;background:#e0e0e0;color:#999;">&mdash;</div></div>
+        <div class="count-labels"><span class="lbl-a">A: 0</span><span class="lbl-b">B: 0</span><span class="lbl-c">C: 0</span></div>
+      </div>
+      <div class="card dist-card" id="distJudging">
+        <h4 data-t="judgingDistribution">Judging Distribution</h4>
+        <div class="overall-grade">-</div>
+        <div class="overall-label" data-t="mostCommonGrade">Most Common Grade</div>
+        <div class="stacked-bar"><div class="seg" style="width:100%;background:#e0e0e0;color:#999;">&mdash;</div></div>
+        <div class="count-labels"><span class="lbl-a">A: 0</span><span class="lbl-b">B: 0</span><span class="lbl-c">C: 0</span></div>
+      </div>
+      <div class="card dist-card" id="distSteering">
+        <h4 data-t="steeringDistribution">Steering Distribution</h4>
+        <div class="overall-grade">-</div>
+        <div class="overall-label" data-t="mostCommonGrade">Most Common Grade</div>
+        <div class="stacked-bar"><div class="seg" style="width:100%;background:#e0e0e0;color:#999;">&mdash;</div></div>
+        <div class="count-labels"><span class="lbl-a">A: 0</span><span class="lbl-b">B: 0</span><span class="lbl-c">C: 0</span></div>
+      </div>
+    </div>
+
+    <!-- Trend Over Time -->
+    <div class="card trend-card">
+      <h3 data-t="trendOverTime">Trend Over Time</h3>
+      <div class="timeline" id="trendTimeline">
+        <div class="loading-state"><p>Loading trend data...</p></div>
+      </div>
+      <div class="tl-legend">
+        <div class="tl-legend-item"><div class="tl-legend-dot" style="background:var(--primary)"></div> <span data-t="framing">Framing</span></div>
+        <div class="tl-legend-item"><div class="tl-legend-dot" style="background:var(--teal)"></div> <span data-t="judging">Judging</span></div>
+        <div class="tl-legend-item"><div class="tl-legend-dot" style="background:var(--accent)"></div> <span data-t="steering">Steering</span></div>
+        <div class="tl-legend-item" style="margin-inline-start:16px;border-inline-start:1px solid var(--border);padding-inline-start:16px;"><div class="tl-legend-dot dot-a"></div> A</div>
+        <div class="tl-legend-item"><div class="tl-legend-dot dot-b"></div> B</div>
+        <div class="tl-legend-item"><div class="tl-legend-dot dot-c"></div> C</div>
+      </div>
+    </div>
+
+    <!-- Improvement Recommendations -->
+    <div class="card reco-card" id="recoSection" style="display:none;">
+      <h3>&#128161; <span data-t="improvementRecommendations">Improvement Recommendations</span></h3>
+      <div id="recoContent"></div>
+    </div>
+
+    <!-- Completed Challenge Runs Table -->
+    <div class="card">
+      <h3 style="margin-bottom:16px;" data-t="completedChallengeRuns" data-tooltip="coReasoningScore">Completed Challenge Runs</h3>
+      <div class="table-wrap" id="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th data-t="challenge">Challenge <span class="help-icon" data-tooltip="The name of the challenge you completed.">?</span></th>
+              <th data-t="course">Course <span class="help-icon" data-tooltip="The course this challenge belongs to.">?</span></th>
+              <th class="hide-mobile" data-t="type">Type <span class="help-icon" data-tooltip="Practice mode shows feedback after each phase. Assessment mode defers feedback until the end.">?</span></th>
+              <th class="hide-mobile" data-t="date">Date <span class="help-icon" data-tooltip="When you completed this challenge run.">?</span></th>
+              <th><span data-t="framing">Framing</span> <span class="help-icon" data-tooltip="analyticsFramingGrade">?</span></th>
+              <th><span data-t="judging">Judging</span> <span class="help-icon" data-tooltip="analyticsJudgingGrade">?</span></th>
+              <th><span data-t="steering">Steering</span> <span class="help-icon" data-tooltip="analyticsSteeringGrade">?</span></th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="runsTableBody">
+            <tr class="loading-row"><td colspan="8">Loading results...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <!-- No results message -->
+      <div id="noResults" style="display:none;text-align:center;padding:32px;color:var(--text-secondary);">
+        <p style="font-size:16px;" data-t="noMatchingResults">No challenge runs match the selected filters.</p>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/tour.js"></script>
+  <script src="js/help-popups.js"></script>
+  <script>
+  (function() {
+    'use strict';
+
+    var allRuns = [];
+    var apiDistributions = null;
+    var tbody = document.getElementById('runsTableBody');
+    var rowIdCounter = 0;
+
+    // ── Load data ──
+    loadCourses();
+    loadAnalytics();
+
+    // ── Load courses into filter dropdown ──
+    function loadCourses() {
+      API.courses.list({ subscribed: true }).then(function(data) {
+        var courses = data.courses || data || [];
+        var sel = document.getElementById('filterCourse');
+        courses.forEach(function(c) {
+          var opt = document.createElement('option');
+          opt.value = c.name || c._id || c.id;
+          opt.textContent = c.name;
+          sel.appendChild(opt);
+        });
+      }).catch(function(err) {
+        console.warn('Could not load courses:', err.message);
+      });
+    }
+
+    // ── Load analytics from API ──
+    function loadAnalytics() {
+      API.analytics.student().then(function(data) {
+        allRuns = data.runs || [];
+        apiDistributions = data.distributions || null;
+
+        // Sort runs by date descending
+        allRuns.sort(function(a, b) {
+          return new Date(b.completed_at || 0) - new Date(a.completed_at || 0);
+        });
+
+        applyFilters();
+      }).catch(function(err) {
+        tbody.innerHTML = '<tr class="loading-row"><td colspan="8" style="color:var(--danger);">Failed to load results: ' + escHtml(err.message) + '</td></tr>';
+        document.getElementById('trendTimeline').innerHTML = '<div class="error-state"><p>Failed to load trend data.</p></div>';
+      });
+    }
+
+    // ── Apply filters and re-render everything ──
+    window.applyFilters = function() {
+      var course = document.getElementById('filterCourse').value;
+      var type = document.getElementById('filterType').value;
+      var grade = document.getElementById('filterGrade').value;
+
+      var filtered = allRuns.filter(function(run) {
+        if (course && (run.course_name || '') !== course) return false;
+        if (type && (run.challenge_type || '') !== type) return false;
+        if (grade) {
+          var g = run.grades || {};
+          if (g.framing !== grade && g.judging !== grade && g.steering !== grade) return false;
+        }
+        return true;
+      });
+
+      renderTable(filtered);
+      renderDistributions(filtered, course, type, grade);
+      renderTimeline(filtered);
+      renderRecommendations(filtered);
+      updateFilterCount(filtered.length, allRuns.length, course, type, grade);
+
+      if (window.translatePage) translatePage();
+      if (window.reinitTooltips) reinitTooltips();
+    };
+
+    // ── Render table rows ──
+    function renderTable(runs) {
+      var tableWrap = document.getElementById('tableWrap');
+      var noResults = document.getElementById('noResults');
+
+      if (runs.length === 0) {
+        tableWrap.style.display = 'none';
+        noResults.style.display = 'block';
+        return;
+      }
+
+      tableWrap.style.display = '';
+      noResults.style.display = 'none';
+      tbody.innerHTML = '';
+
+      runs.forEach(function(run) {
+        var rowId = 'row' + (++rowIdCounter);
+        var grades = run.grades || {};
+        var f = grades.framing || '-';
+        var j = grades.judging || '-';
+        var s = grades.steering || '-';
+
+        // Main row
+        var tr = document.createElement('tr');
+        tr.className = 'expandable-row';
+        tr.setAttribute('data-course', run.course_name || '');
+        tr.setAttribute('data-type', run.challenge_type || '');
+        tr.setAttribute('data-framing', f);
+        tr.setAttribute('data-judging', j);
+        tr.setAttribute('data-steering', s);
+        tr.addEventListener('click', function() { toggleRow(rowId); });
+
+        var cType = (run.challenge_type || 'practice').toLowerCase();
+
+        tr.innerHTML =
+          '<td dir="auto"><strong>' + escHtml(run.challenge_title || 'Untitled') + '</strong></td>' +
+          '<td dir="auto">' + escHtml(run.course_name || '-') + '</td>' +
+          '<td class="hide-mobile"><span class="badge badge-' + cType + '" data-t="' + cType + '">' + capitalize(cType) + '</span></td>' +
+          '<td class="hide-mobile">' + formatDate(run.completed_at) + '</td>' +
+          '<td>' + gradeSpan(f) + '</td>' +
+          '<td>' + gradeSpan(j) + '</td>' +
+          '<td>' + gradeSpan(s) + '</td>' +
+          '<td>' + (run.status === 'completed' && run.id ? '<a href="challenge-report.html?runId=' + escHtml(run.id) + '" class="view-report-link" onclick="event.stopPropagation()">View Report &rarr;</a>' : '') + '</td>';
+        tbody.appendChild(tr);
+
+        // Detail row
+        var detailTr = document.createElement('tr');
+        detailTr.className = 'detail-row';
+        detailTr.id = rowId;
+        detailTr.innerHTML =
+          '<td colspan="8" style="padding:0;border:none;">' +
+            '<div class="detail-content">' +
+              '<div class="detail-grid">' +
+                detailMiniCard('framing', f, grades.framing_feedback) +
+                detailMiniCard('judging', j, grades.judging_feedback) +
+                detailMiniCard('steering', s, grades.steering_feedback) +
+              '</div>' +
+            '</div>' +
+          '</td>';
+        tbody.appendChild(detailTr);
+      });
+    }
+
+    // ── Render grade distribution cards ──
+    function renderDistributions(filteredRuns, course, type, grade) {
+      // Compute distributions from filtered runs
+      var dist = { framing: {A:0,B:0,C:0}, judging: {A:0,B:0,C:0}, steering: {A:0,B:0,C:0} };
+      var isFiltered = !!(course || type || grade);
+
+      if (!isFiltered && apiDistributions) {
+        // Use API-provided distributions when no filters are active
+        ['framing', 'judging', 'steering'].forEach(function(skill) {
+          var d = apiDistributions[skill] || {};
+          dist[skill].A = d.A || 0;
+          dist[skill].B = d.B || 0;
+          dist[skill].C = d.C || 0;
+        });
+      } else {
+        // Compute from filtered runs
+        filteredRuns.forEach(function(run) {
+          var g = run.grades || {};
+          if (g.framing && dist.framing[g.framing] !== undefined) dist.framing[g.framing]++;
+          if (g.judging && dist.judging[g.judging] !== undefined) dist.judging[g.judging]++;
+          if (g.steering && dist.steering[g.steering] !== undefined) dist.steering[g.steering]++;
+        });
+      }
+
+      var total = filteredRuns.length;
+      updateDistCard(document.getElementById('distFraming'), dist.framing, total);
+      updateDistCard(document.getElementById('distJudging'), dist.judging, total);
+      updateDistCard(document.getElementById('distSteering'), dist.steering, total);
+    }
+
+    function updateDistCard(card, counts, total) {
+      if (!card) return;
+
+      // Use the sum of counts as denominator (more accurate than filteredRuns.length
+      // because not every run may have a grade for every skill)
+      var countTotal = (counts.A || 0) + (counts.B || 0) + (counts.C || 0);
+
+      // Find most common grade
+      var most = '-';
+      if (countTotal > 0) {
+        most = 'A';
+        if (counts.B >= counts.A && counts.B >= counts.C) most = 'B';
+        if (counts.C > counts.A && counts.C > counts.B) most = 'C';
+      }
+
+      // Update overall grade circle
+      var circle = card.querySelector('.overall-grade');
+      circle.textContent = most;
+      circle.className = 'overall-grade' + (most !== '-' ? ' grade-' + most : '');
+      if (most !== '-') {
+        circle.setAttribute('data-tooltip', 'grade' + most);
+      } else {
+        circle.removeAttribute('data-tooltip');
+      }
+
+      // Update stacked bar
+      var bar = card.querySelector('.stacked-bar');
+      if (countTotal > 0) {
+        var cA = counts.A || 0, cB = counts.B || 0, cC = counts.C || 0;
+        var pA = Math.round(cA / countTotal * 100);
+        var pB = Math.round(cB / countTotal * 100);
+        var pC = Math.round(cC / countTotal * 100);
+        // Adjust for rounding so segments always sum to exactly 100%
+        var diff = 100 - pA - pB - pC;
+        if (diff !== 0) {
+          // Apply correction to the largest segment to minimise relative error
+          if (pA >= pB && pA >= pC) pA += diff;
+          else if (pB >= pA && pB >= pC) pB += diff;
+          else pC += diff;
+        }
+        bar.innerHTML = '';
+        if (pA > 0) bar.innerHTML += '<div class="seg seg-a" style="width:' + pA + '%">' + pA + '%</div>';
+        if (pB > 0) bar.innerHTML += '<div class="seg seg-b" style="width:' + pB + '%">' + pB + '%</div>';
+        if (pC > 0) bar.innerHTML += '<div class="seg seg-c" style="width:' + pC + '%">' + pC + '%</div>';
+      } else if (countTotal === 0 && total > 0) {
+        // Runs exist but no grades for this skill
+        bar.innerHTML = '<div class="seg" style="width:100%;background:#e0e0e0;color:#999;">&mdash;</div>';
+      } else {
+        bar.innerHTML = '<div class="seg" style="width:100%;background:#e0e0e0;color:#999;">&mdash;</div>';
+      }
+
+      // Update count labels
+      var labels = card.querySelector('.count-labels');
+      labels.innerHTML = '<span class="lbl-a">A: ' + counts.A + '</span><span class="lbl-b">B: ' + counts.B + '</span><span class="lbl-c">C: ' + counts.C + '</span>';
+    }
+
+    // ── Render trend timeline ──
+    function renderTimeline(runs) {
+      var timeline = document.getElementById('trendTimeline');
+
+      if (runs.length === 0) {
+        timeline.innerHTML = '<div class="loading-state"><p data-t="noMatchingResults">No challenge runs match the selected filters.</p></div>';
+        return;
+      }
+
+      // Sort runs chronologically for timeline (oldest first)
+      var sorted = runs.slice().sort(function(a, b) {
+        return new Date(a.completed_at || 0) - new Date(b.completed_at || 0);
+      });
+
+      timeline.innerHTML = '';
+      sorted.forEach(function(run) {
+        var g = run.grades || {};
+        var f = g.framing || '-';
+        var j = g.judging || '-';
+        var s = g.steering || '-';
+
+        var point = document.createElement('div');
+        point.className = 'tl-point';
+        point.setAttribute('data-course', run.course_name || '');
+        point.setAttribute('data-type', run.challenge_type || '');
+        point.setAttribute('data-framing', f);
+        point.setAttribute('data-judging', j);
+        point.setAttribute('data-steering', s);
+
+        // Abbreviate challenge title for timeline label
+        var label = run.challenge_title || 'Untitled';
+        if (label.length > 12) label = label.substring(0, 11) + '.';
+
+        point.innerHTML =
+          '<div class="tl-dots">' +
+            '<div class="tl-dot dot-' + f.toLowerCase() + '" title="Framing: ' + f + '"></div>' +
+            '<div class="tl-dot dot-' + j.toLowerCase() + '" title="Judging: ' + j + '"></div>' +
+            '<div class="tl-dot dot-' + s.toLowerCase() + '" title="Steering: ' + s + '"></div>' +
+          '</div>' +
+          '<div class="tl-label">' + escHtml(label) + '</div>';
+
+        timeline.appendChild(point);
+      });
+    }
+
+    // ── Update filter count ──
+    function updateFilterCount(visible, total, course, type, grade) {
+      var countEl = document.getElementById('filterCount');
+      if (course || type || grade) {
+        countEl.textContent = visible + ' / ' + total;
+      } else {
+        countEl.textContent = '';
+      }
+    }
+
+    // ── Toggle detail row ──
+    window.toggleRow = function(id) {
+      var row = document.getElementById(id);
+      if (row) row.classList.toggle('open');
+    };
+
+    // ── Improvement Recommendations ──
+    function generateRecommendations(runs) {
+      var recommendations = [];
+      if (runs.length < 2) return recommendations;
+
+      // Compute distributions
+      var dist = { framing: {A:0,B:0,C:0}, judging: {A:0,B:0,C:0}, steering: {A:0,B:0,C:0} };
+      runs.forEach(function(run) {
+        var g = run.grades || {};
+        if (g.framing && dist.framing[g.framing] !== undefined) dist.framing[g.framing]++;
+        if (g.judging && dist.judging[g.judging] !== undefined) dist.judging[g.judging]++;
+        if (g.steering && dist.steering[g.steering] !== undefined) dist.steering[g.steering]++;
+      });
+
+      // Identify weakest dimension by a weakness score (most C grades + fewest A grades)
+      var dims = ['framing', 'judging', 'steering'];
+      var weakest = null;
+      var worstScore = -Infinity;
+      dims.forEach(function(dim) {
+        var score = dist[dim].C - dist[dim].A; // higher = weaker
+        if (score > worstScore) { worstScore = score; weakest = dim; }
+      });
+
+      var dimLabel = function(dim) { return t(dim) || capitalize(dim); };
+      var advice = {
+        framing: t('recoFramingAdvice') || "Focus on identifying what's missing in problems. Before submitting, ask yourself: What assumptions am I making? What information is ambiguous? What constraints should I specify?",
+        judging: t('recoJudgingAdvice') || "Practice critical evaluation. When reviewing AI solutions, look for: incorrect assumptions, missing edge cases, logical errors, and oversimplifications. Don't accept the first answer at face value.",
+        steering: t('recoSteeringAdvice') || "Work on giving specific feedback. Instead of 'make it better', try 'fix the edge case where X happens' or 'recalculate Y using Z approach'. Be precise and actionable."
+      };
+
+      // Only show weakness advice if there's a meaningful gap
+      if (worstScore > 0) {
+        recommendations.push({
+          type: 'warning',
+          title: (t('recoNeedsAttention') || '{dim} needs attention').replace('{dim}', dimLabel(weakest)),
+          text: advice[weakest]
+        });
+      }
+
+      // Detect trends over last 5 runs
+      var sorted = runs.slice().sort(function(a, b) {
+        return new Date(a.completed_at || 0) - new Date(b.completed_at || 0);
+      });
+      var recent = sorted.slice(-5);
+      if (recent.length >= 3) {
+        var gradeVal = { A: 3, B: 2, C: 1 };
+        dims.forEach(function(dim) {
+          var grades = [];
+          recent.forEach(function(r) {
+            var g = (r.grades || {})[dim];
+            if (g && gradeVal[g]) grades.push({ letter: g, val: gradeVal[g] });
+          });
+          if (grades.length >= 3) {
+            var first = grades[0];
+            var last = grades[grades.length - 1];
+            if (last.val > first.val) {
+              recommendations.push({
+                type: 'success',
+                title: (t('recoIsImproving') || '{dim} is improving').replace('{dim}', dimLabel(dim)),
+                text: (t('recoImprovingText') || 'Your {dim} has improved from {from} to {to} over your last {count} runs \u2014 keep it up!').replace('{dim}', dimLabel(dim)).replace('{from}', first.letter).replace('{to}', last.letter).replace('{count}', grades.length)
+              });
+            } else if (last.val < first.val && last.val <= 1) {
+              recommendations.push({
+                type: 'info',
+                title: (t('recoTrend') || '{dim} trend').replace('{dim}', dimLabel(dim)),
+                text: (t('recoDippedText') || 'Your {dim} grades have dipped from {from} to {to} recently. Review the feedback on your last few runs to identify patterns.').replace('{dim}', dimLabel(dim)).replace('{from}', first.letter).replace('{to}', last.letter)
+              });
+            }
+          }
+        });
+      }
+
+      // Highlight strongest dimension for encouragement
+      var strongest = null;
+      var bestScore = Infinity;
+      dims.forEach(function(dim) {
+        var score = dist[dim].C - dist[dim].A;
+        if (score < bestScore) { bestScore = score; strongest = dim; }
+      });
+      if (strongest && bestScore < 0 && strongest !== weakest) {
+        recommendations.push({
+          type: 'success',
+          title: (t('recoIsStrength') || '{dim} is your strength').replace('{dim}', dimLabel(strongest)),
+          text: (t('recoStrengthText') || 'You consistently score well on {dim}. Great work \u2014 keep applying the same rigor to your other dimensions!').replace('{dim}', dimLabel(strongest))
+        });
+      }
+
+      return recommendations;
+    }
+
+    function renderRecommendations(runs) {
+      var section = document.getElementById('recoSection');
+      var content = document.getElementById('recoContent');
+      var recos = generateRecommendations(runs);
+
+      if (recos.length === 0) {
+        section.style.display = 'none';
+        return;
+      }
+
+      section.style.display = '';
+      content.innerHTML = '';
+      recos.forEach(function(r) {
+        var div = document.createElement('div');
+        div.className = 'reco-item reco-' + r.type;
+        div.innerHTML = '<strong>' + escHtml(r.title) + '</strong>' + escHtml(r.text);
+        content.appendChild(div);
+      });
+    }
+
+    // ── Helpers ──
+    function gradeSpan(g) {
+      if (!g || g === '-') return '<span class="grade">-</span>';
+      return '<span class="grade grade-' + g + '" data-tooltip="grade' + g + '">' + g + '</span>';
+    }
+
+    function detailMiniCard(skill, grade, feedback) {
+      var colorVar = grade === 'A' ? 'var(--grade-a)' : grade === 'B' ? 'var(--grade-b)' : grade === 'C' ? 'var(--grade-c)' : 'var(--border)';
+      var feedbackText = feedback ? escHtml(feedback) : '';
+      return '<div class="detail-mini-card" style="border-left:3px solid ' + colorVar + ';">' +
+        '<div class="mini-label" data-t="' + skill + '">' + capitalize(skill) + '</div>' +
+        gradeSpan(grade) +
+        (feedbackText ? '<div class="mini-feedback">' + feedbackText + '</div>' : '') +
+      '</div>';
+    }
+
+    function escHtml(s) {
+      if (!s) return '';
+      var d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    function capitalize(s) {
+      return s.charAt(0).toUpperCase() + s.slice(1);
+    }
+
+    function formatDate(d) {
+      if (!d) return '-';
+      try {
+        var dt = new Date(d);
+        return dt.toLocaleDateString(getLang() || undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+      } catch (e) { return d; }
+    }
+  })();
+  </script>
+</body>
+</html>

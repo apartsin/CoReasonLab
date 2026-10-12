@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI CoReasoning Lab — Create Private Challenge</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="assets/logo.png">
+  <style>
+    .inline-radio { display: flex; gap: 16px; }
+    .inline-radio label { display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
+  </style>
+  <script src="content-compiled/all.js"></script>
+  <script src="content-loader.js"></script>
+  <script src="js/tooltips.js"></script>
+  <script src="js/api-client.js"></script>
+  <script src="js/user-header.js"></script>
+</head>
+<body>
+  <a href="#main-content" class="skip-to-content">Skip to content</a>
+  <header class="topnav">
+    <a href="index.html" class="logo"><img src="assets/logo.png" alt="Logo"> AI CoReasoning Lab</a>
+    <nav>
+      <a href="challenge-list.html" class="active" data-t="challenges">Challenges</a>
+      <a href="course-catalog.html" data-t="courses">Courses</a>
+      <a href="student-analytics.html" data-t="myResults">My Results</a>
+    </nav>
+    <div class="user-area">
+      <a href="interactive-guide.html" class="guide-link" title="Interactive Guide" data-t="guide">Guide</a>
+      <select class="lang-select"><option value="en">EN</option><option value="he">HE</option><option value="fr">FR</option><option value="de">DE</option><option value="es">ES</option></select>
+      <span style="background:#e8eaf6;color:#1a237e;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px" data-t="student">Student</span>
+      <span id="userInstitution" style="font-size:12px;color:#1a237e;background:#e8eaf6;padding:2px 10px;border-radius:12px;font-weight:600;"></span>
+      <span id="userName">&mdash;</span>
+      <a href="profile.html" aria-label="User profile"><div class="avatar" id="userAvatar">?</div></a>
+      <a href="#" class="btn-logout" onclick="API.auth.logout().then(()=>window.location.href='/login.html').catch(()=>window.location.href='/login.html');return false;" style="margin-left:8px;background:var(--primary);border:none;border-radius:var(--radius);padding:5px 14px;font-size:12px;color:#fff;cursor:pointer;text-decoration:none;font-weight:600;" data-t="logout">Logout</a>
+    </div>
+  </header>
+
+  <main class="page" id="main-content" style="max-width:720px;">
+    <div class="page-header">
+      <h1 data-t="createPrivateChallenge">Create a Private Challenge</h1>
+      <p>Create a personal practice challenge on any topic from your courses</p>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:16px;" data-t="challengeDetails">Challenge Details</h3>
+
+      <!-- Title -->
+      <div class="form-group">
+        <label for="challengeTitle" data-t="challengeTitle">Title</label>
+        <input type="text" class="form-control" id="challengeTitle" placeholder="e.g. My Practice: Backpropagation">
+      </div>
+
+      <!-- Course -->
+      <div class="form-group">
+        <label for="courseSelect" data-t="selectCourse">Course</label>
+        <select class="form-control" id="courseSelect" onchange="onCourseChange(this.value)">
+          <option value="">Loading courses...</option>
+        </select>
+      </div>
+
+      <!-- Subject Tree -->
+      <div class="form-group">
+        <label data-t="subjectArea">Subject Tree Nodes <span class="help-icon" data-tooltip="Select one or more topics within the course. The challenge problem will be generated based on the selected subjects.">?</span></label>
+        <div class="subject-tree-select" id="subjectTreeSelect">
+          <div class="subject-tree-trigger" onclick="toggleSubjectTree()">
+            <span class="subject-tree-tags" id="selectedTags">
+              <span class="text-muted" style="font-size:13px;">Select subjects...</span>
+            </span>
+            <span class="subject-tree-arrow">&#9662;</span>
+          </div>
+          <div class="subject-tree-dropdown" id="subjectTreeDropdown">
+            <div class="subject-tree-search">
+              <input type="text" placeholder="Search subjects..." class="form-control" style="margin-bottom:0; font-size:13px; padding:6px 10px;">
+            </div>
+            <div class="subject-tree-body">
+              <ul class="tree-select" id="treeSelectRoot">
+                <li><span class="text-muted" style="padding:12px;display:block;font-size:13px;" data-t="selectCourseToLoadSubjects">Select a course to load subjects...</span></li>
+              </ul>
+            </div>
+            <div class="subject-tree-footer">
+              <span class="text-sm text-muted"><strong id="selectedCount">0</strong> subjects selected</span>
+              <button class="btn btn-sm btn-outline" onclick="clearAllSubjects()">Clear All</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Description -->
+      <div class="form-group">
+        <label for="challengeDescription" data-t="description">Description</label>
+        <textarea class="form-control" id="challengeDescription" rows="3" placeholder="Optionally describe what you'd like to practice..."></textarea>
+      </div>
+
+      <!-- Visibility (locked) -->
+      <div class="form-group">
+        <label data-t="visibility" data-tooltip="visibility">Visibility</label>
+        <div class="alert alert-info" style="margin-bottom:0;">
+          <strong data-t="private">Private</strong> &mdash; Only you can see this challenge. It won't appear in any course or instructor view.
+        </div>
+      </div>
+
+      <!-- Type (locked) -->
+      <div class="form-group">
+        <label data-t="responseType" data-tooltip="challengeType">Challenge Type</label>
+        <div class="alert alert-info" style="margin-bottom:0;">
+          <strong data-t="practice">Practice</strong> mode &mdash; you'll receive feedback after each phase and can retry.
+        </div>
+      </div>
+    </div>
+
+    <div class="flex gap-12 mt-16">
+      <button class="btn btn-primary btn-lg" id="btnCreateStart" onclick="createAndStart()" data-t="createAndStart">Create &amp; Start</button>
+      <a href="challenge-list.html" class="btn btn-outline btn-lg" data-t="cancel">Cancel</a>
+    </div>
+  </main>
+
+  <script>
+    // Toggle the dropdown open/close
+    function toggleSubjectTree() {
+      document.getElementById('subjectTreeSelect').classList.toggle('open');
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+      var select = document.getElementById('subjectTreeSelect');
+      if (select && !select.contains(e.target)) {
+        select.classList.remove('open');
+      }
+    });
+
+    // Toggle tree branch expand/collapse
+    function toggleTreeBranch(toggleEl) {
+      toggleEl.classList.toggle('collapsed');
+      var li = toggleEl.closest('li');
+      var children = li.querySelector('ul.tree-children');
+      if (children) children.classList.toggle('collapsed');
+    }
+
+    // When a parent checkbox is toggled, check/uncheck all children
+    function toggleChildren(checkbox) {
+      var li = checkbox.closest('li');
+      var childCheckboxes = li.querySelectorAll('ul.tree-children .tree-checkbox');
+      childCheckboxes.forEach(function(cb) {
+        cb.checked = checkbox.checked;
+        cb.indeterminate = false;
+      });
+      updateParentState(checkbox);
+      updateSelectedTags();
+    }
+
+    // Update parent checkbox state (checked / indeterminate / unchecked)
+    function updateParentState(checkbox) {
+      var li = checkbox.closest('li');
+      var parentUl = li.parentElement;
+      if (!parentUl || !parentUl.classList.contains('tree-children')) return;
+
+      var parentLi = parentUl.closest('li');
+      if (!parentLi) return;
+
+      var parentCb = parentLi.querySelector(':scope > label .tree-checkbox');
+      if (!parentCb) return;
+
+      var siblings = parentUl.querySelectorAll(':scope > li > label .tree-checkbox');
+      var checkedCount = 0;
+      var indeterminateCount = 0;
+      siblings.forEach(function(cb) {
+        if (cb.checked) checkedCount++;
+        if (cb.indeterminate) indeterminateCount++;
+      });
+
+      if (checkedCount === siblings.length) {
+        parentCb.checked = true;
+        parentCb.indeterminate = false;
+      } else if (checkedCount === 0 && indeterminateCount === 0) {
+        parentCb.checked = false;
+        parentCb.indeterminate = false;
+      } else {
+        parentCb.checked = false;
+        parentCb.indeterminate = true;
+      }
+
+      updateParentState(parentCb);
+    }
+
+    // Rebuild the tag list from checked leaf checkboxes
+    function updateSelectedTags() {
+      var tagsContainer = document.getElementById('selectedTags');
+      var allChecked = document.querySelectorAll('.tree-checkbox:checked');
+      tagsContainer.innerHTML = '';
+      var count = 0;
+
+      allChecked.forEach(function(cb) {
+        var li = cb.closest('li');
+        var directChildUl = li.querySelector(':scope > ul.tree-children');
+        if (directChildUl) return;
+
+        count++;
+        var path = [];
+        var current = li;
+        while (current) {
+          var label = current.querySelector(':scope > label .tree-label');
+          if (label) path.unshift(label.textContent);
+          var parentUl = current.parentElement;
+          current = (parentUl && parentUl.classList.contains('tree-children')) ? parentUl.closest('li') : null;
+        }
+        var display = path.length > 2 ? path.slice(-2).join(' > ') : path.join(' > ');
+
+        var tag = document.createElement('span');
+        tag.className = 'subject-tag';
+        tag.innerHTML = display + ' <button onclick="event.stopPropagation(); uncheckById(\'' + cb.id + '\')">&times;</button>';
+        tagsContainer.appendChild(tag);
+      });
+
+      if (count === 0) {
+        tagsContainer.innerHTML = '<span class="text-muted" style="font-size:13px;">Select subjects...</span>';
+      }
+
+      document.getElementById('selectedCount').textContent = count;
+    }
+
+    function uncheckById(id) {
+      var cb = document.getElementById(id);
+      if (cb) {
+        cb.checked = false;
+        updateParentState(cb);
+        updateSelectedTags();
+      }
+    }
+
+    function clearAllSubjects() {
+      document.querySelectorAll('.tree-checkbox').forEach(function(cb) {
+        cb.checked = false;
+        cb.indeterminate = false;
+      });
+      updateSelectedTags();
+    }
+
+    // Note: checkbox listeners are attached dynamically in onCourseChange()
+    // after the subject tree is loaded from the API.
+
+    // --- Unique ID counter for tree nodes ---
+    var _treeNodeId = 0;
+    function nextTreeId() { return 'stn-' + (++_treeNodeId); }
+
+    // --- Load courses from API ---
+    (async function loadCourses() {
+      try {
+        var courses = await API.get('/courses');
+        var select = document.getElementById('courseSelect');
+        if (!courses || courses.length === 0) {
+          select.innerHTML = '<option value="">No courses available</option>';
+          return;
+        }
+        var html = '<option value="">Select a course...</option>';
+        courses.forEach(function(c) {
+          html += '<option value="' + c.id + '">' + c.name + '</option>';
+        });
+        select.innerHTML = html;
+      } catch (err) {
+        document.getElementById('courseSelect').innerHTML = '<option value="">Failed to load courses</option>';
+      }
+    })();
+
+    // --- When course changes, load its subject tree ---
+    async function onCourseChange(courseId) {
+      clearAllSubjects();
+      var root = document.getElementById('treeSelectRoot');
+      if (!root) return;
+
+      if (!courseId) {
+        root.innerHTML = '<li><span class="text-muted" style="padding:12px;display:block;font-size:13px;">Select a course to load subjects...</span></li>';
+        return;
+      }
+
+      root.innerHTML = '<li><span class="text-muted" style="padding:12px;display:block;font-size:13px;">Loading subjects...</span></li>';
+
+      try {
+        var subjects = await API.get('/courses/' + courseId + '/subjects');
+        if (!subjects || subjects.length === 0) {
+          root.innerHTML = '<li><span class="text-muted" style="padding:12px;display:block;font-size:13px;">No subjects defined for this course.</span></li>';
+          return;
+        }
+        root.innerHTML = '';
+        subjects.forEach(function(node) {
+          root.appendChild(buildSubjectTreeNode(node));
+        });
+        // Re-attach listeners to new checkboxes
+        document.querySelectorAll('.tree-checkbox').forEach(function(cb) {
+          if (!cb.closest('li').querySelector(':scope > ul.tree-children')) {
+            cb.addEventListener('change', function() {
+              updateParentState(this);
+              updateSelectedTags();
+            });
+          }
+        });
+      } catch (err) {
+        root.innerHTML = '<li><span class="text-muted" style="padding:12px;display:block;font-size:13px;">Failed to load subjects.</span></li>';
+      }
+    }
+
+    // --- Build a subject tree node recursively from JSON ---
+    function buildSubjectTreeNode(node) {
+      var li = document.createElement('li');
+      var label = document.createElement('label');
+      label.className = 'tree-node';
+
+      var hasChildren = node.children && node.children.length > 0;
+      var cbId = nextTreeId();
+
+      if (hasChildren) {
+        var toggle = document.createElement('span');
+        toggle.className = 'tree-toggle';
+        toggle.innerHTML = '&#9660;';
+        toggle.addEventListener('click', function(e) { e.preventDefault(); toggleTreeBranch(this); });
+        label.appendChild(toggle);
+      }
+
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'tree-checkbox';
+      cb.id = cbId;
+      if (hasChildren) {
+        cb.addEventListener('change', function() { toggleChildren(this); });
+      }
+      label.appendChild(cb);
+
+      var span = document.createElement('span');
+      span.className = 'tree-label';
+      span.textContent = node.name;
+      label.appendChild(span);
+
+      li.appendChild(label);
+
+      if (hasChildren) {
+        var ul = document.createElement('ul');
+        ul.className = 'tree-children';
+        node.children.forEach(function(child) {
+          ul.appendChild(buildSubjectTreeNode(child));
+        });
+        li.appendChild(ul);
+      }
+
+      return li;
+    }
+
+    // --- Get selected subject names (leaf nodes only) ---
+    function getSelectedSubjectNames() {
+      var names = [];
+      document.querySelectorAll('.tree-checkbox:checked').forEach(function(cb) {
+        var li = cb.closest('li');
+        if (li.querySelector(':scope > ul.tree-children')) return;
+        var label = li.querySelector(':scope > label .tree-label');
+        if (label) names.push(label.textContent);
+      });
+      return names;
+    }
+
+    // --- Collect form data ---
+    function collectFormData() {
+      return {
+        title: document.getElementById('challengeTitle').value.trim(),
+        courseId: document.getElementById('courseSelect').value,
+        description: (document.getElementById('challengeDescription').value || '').trim(),
+        subjectPath: getSelectedSubjectNames(),
+        challengeType: 'practice',
+        visibility: 'private',
+        maxCycles: 5,
+        instructions: {},
+      };
+    }
+
+    // --- Create & Start ---
+    async function createAndStart() {
+      var data = collectFormData();
+      if (!data.title) { alert(t('pleaseEnterTitle') || 'Please enter a challenge title.'); return; }
+      if (!data.courseId) { alert(t('pleaseSelectCourse') || 'Please select a course.'); return; }
+      if (data.subjectPath.length === 0) { alert(t('pleaseSelectSubject') || 'Please select at least one subject.'); return; }
+
+      var btn = document.getElementById('btnCreateStart');
+      btn.disabled = true;
+      btn.textContent = t('creating') || 'Creating...';
+
+      try {
+        var challenge = await API.challenges.create(data);
+        var run = await API.runs.start(challenge.id);
+        window.location.href = 'challenge-run.html?runId=' + run.id;
+      } catch (err) {
+        console.error('Create & Start failed:', err);
+        alert((t('createFailed') || 'Failed to create challenge') + ': ' + err.message);
+        btn.disabled = false;
+        btn.textContent = t('createAndStart') || 'Create & Start';
+      }
+    }
+  </script>
+</body>
+</html>

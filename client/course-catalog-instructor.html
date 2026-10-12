@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI CoReasoning Lab — My Courses</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="assets/logo.png">
+  <style>
+    .course-card { position: relative; transition: box-shadow .15s; }
+    .course-card:hover { box-shadow: var(--shadow-lg); }
+    .course-card .course-dept { font-size: 12px; color: var(--teal); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: calc(100% - 120px); }
+    .course-card h3 { font-size: 16px; margin-bottom: 8px; }
+    .course-card .course-meta { font-size: 13px; color: var(--text-secondary); }
+    .course-card .course-meta span { display: inline-flex; align-items: center; gap: 4px; margin-inline-end: 12px; }
+    .course-card .course-actions { margin-top: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .subject-tree-preview { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .subject-tree-preview .tag { display: inline-block; background: #e8eaf6; color: var(--primary); font-size: 12px; padding: 2px 8px; border-radius: 4px; margin: 2px 4px 2px 0; }
+    .role-badge { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 4px; position: absolute; top: 12px; inset-inline-end: 12px; }
+    .role-badge.lead { background: var(--teal); color: #fff; }
+    .role-badge.co { background: #e0f2f1; color: #00695c; }
+    .course-stats { display: flex; gap: 16px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+    .course-stats .stat { text-align: center; flex: 1; }
+    .course-stats .stat-value { font-size: 18px; font-weight: 700; color: var(--primary); }
+    .course-stats .stat-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .3px; }
+    .edit-tree-link { font-size: 12px; color: var(--teal); text-decoration: none; font-weight: 500; }
+    .edit-tree-link:hover { text-decoration: underline; }
+    .empty-state { text-align: center; padding: 48px; color: var(--text-secondary); }
+  </style>
+  <script src="content-compiled/all.js"></script>
+  <script src="content-loader.js"></script>
+  <script src="js/tooltips.js"></script>
+  <script src="js/api-client.js"></script>
+  <script src="js/user-header.js"></script>
+</head>
+<body>
+  <a href="#main-content" class="skip-to-content">Skip to content</a>
+  <header class="topnav">
+    <a href="index.html" class="logo"><img src="assets/logo.png" alt="Logo"> AI CoReasoning Lab</a>
+    <nav>
+      <a href="challenge-list-instructor.html" data-t="challenges">Challenges</a>
+      <a href="course-catalog-instructor.html" class="active" data-t="courses">Courses</a>
+      <a href="instructor-analytics.html" data-t="analytics">Analytics</a>
+    </nav>
+    <div class="user-area">
+      <a href="interactive-guide.html" class="guide-link" title="Interactive Guide" data-t="guide">Guide</a>
+      <select class="lang-select"><option value="en">EN</option><option value="he">HE</option><option value="fr">FR</option><option value="de">DE</option><option value="es">ES</option></select>
+      <span style="background:#e0f2f1;color:#00695c;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px" data-t="instructor">Instructor</span>
+      <span id="userInstitution" style="font-size:12px;color:#1a237e;background:#e8eaf6;padding:2px 10px;border-radius:12px;font-weight:600;"></span>
+      <span id="userName">&mdash;</span>
+      <a href="profile.html" aria-label="User profile"><div class="avatar" id="userAvatar" style="background:#e3f2fd;color:var(--primary);">?</div></a>
+      <a href="#" class="btn-logout" onclick="API.auth.logout().then(()=>window.location.href='/login.html').catch(()=>window.location.href='/login.html');return false;" style="margin-left:8px;background:var(--primary);border:none;border-radius:var(--radius);padding:5px 14px;font-size:12px;color:#fff;cursor:pointer;text-decoration:none;font-weight:600;" data-t="logout">Logout</a>
+    </div>
+  </header>
+
+  <main class="page" id="main-content">
+    <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-start;">
+      <div>
+        <h1 data-t="courses">My Courses</h1>
+        <p data-t="courseCatalogDesc">Manage your courses and subject trees</p>
+      </div>
+      <!-- TODO: Course creation page not yet implemented; courses are created via YAML import -->
+      <!-- <a href="add-course.html" class="btn btn-primary" data-t="addNewCourse">+ Add New Course</a> -->
+    </div>
+
+    <!-- Institution context -->
+    <div class="alert alert-info" style="display:flex; align-items:center; gap:8px; margin-bottom:16px;">
+      <span>&#8505;&#65039;</span>
+      <span data-t="showingCoursesFrom">Showing courses from your institution:</span> <strong id="institutionLabel"></strong>
+    </div>
+
+    <!-- Filter -->
+    <div class="filter-bar">
+      <input type="search" id="filterSearch" class="form-control" data-t-placeholder="searchCourses" placeholder="Search courses...">
+      <select id="filterDept" class="form-control">
+        <option value="" data-t="allDepartments">All Departments</option>
+      </select>
+    </div>
+
+    <div class="grid grid-3" id="courseGrid">
+      <div class="empty-state">Loading courses...</div>
+    </div>
+  </main>
+
+  <script>
+  (function() {
+    'use strict';
+
+    var allCourses = [];
+    var grid = document.getElementById('courseGrid');
+
+    // Wait for user-header to populate _currentUser
+    var checkUser = setInterval(function() {
+      if (window._currentUser) {
+        clearInterval(checkUser);
+        var instName = window._currentUser.institution_name || window._currentUser.institutionName || '';
+        var instLabel = document.getElementById('institutionLabel');
+        if (instLabel) instLabel.textContent = instName;
+        loadCourses();
+      }
+    }, 100);
+
+    // Fallback: load anyway after 2s
+    setTimeout(function() { clearInterval(checkUser); loadCourses(); }, 2000);
+
+    function loadCourses() {
+      API.courses.list({ instructor: true }).then(function(data) {
+        allCourses = data.courses || data || [];
+
+        // Populate department filter
+        var depts = new Set();
+        allCourses.forEach(function(c) { if (c.department) depts.add(c.department); });
+        var deptSel = document.getElementById('filterDept');
+        depts.forEach(function(d) {
+          var opt = document.createElement('option');
+          opt.value = d;
+          opt.textContent = d;
+          deptSel.appendChild(opt);
+        });
+
+        renderCourses(allCourses);
+      }).catch(function(err) {
+        grid.innerHTML = '<div class="empty-state" style="color:var(--danger);">Failed to load courses: ' + escHtml(err.message) + '</div>';
+      });
+    }
+
+    function renderCourses(list) {
+      if (list.length === 0) {
+        grid.innerHTML = '<div class="empty-state"><p data-t="noCoursesFound">' + (t('noCoursesFound') || 'No courses found.') + '</p></div>';
+        return;
+      }
+
+      grid.innerHTML = '';
+      list.forEach(function(c) {
+        var id = c._id || c.id;
+        var isLead = c.is_lead || c.isLead || false;
+        var card = document.createElement('div');
+        card.className = 'card course-card';
+
+        var html = '';
+        html += '<span class="role-badge ' + (isLead ? 'lead' : 'co') + '" data-t="' + (isLead ? 'leadInstructor' : 'coInstructor') + '">' + (isLead ? (t('leadInstructor') || 'Lead Instructor') : (t('coInstructor') || 'Co-Instructor')) + '</span>';
+        html += '<div class="course-dept" dir="auto">' + escHtml(c.department || '') + '</div>';
+        html += '<h3 dir="auto">' + escHtml(c.name || 'Untitled') + '</h3>';
+        html += '<div class="course-meta">';
+        html += '<span>&#127979; ' + (c.student_count || c.studentCount || 0) + ' <span data-t="students">students</span></span>';
+        html += '<span>&#128203; ' + (c.challenge_count || c.challengeCount || 0) + ' <span data-t="challenges">challenges</span></span>';
+        html += '<span>&#128100; ' + (c.instructor_count || c.instructorCount || 0) + ' <span data-t="instructors">instructors</span></span>';
+        html += '</div>';
+
+        // Stats
+        html += '<div class="course-stats">';
+        html += '<div class="stat"><div class="stat-value">' + (c.challenge_count || c.challengeCount || 0) + '</div><div class="stat-label" data-t="challenges">Challenges</div></div>';
+        html += '<div class="stat"><div class="stat-value">' + (c.student_count || c.studentCount || 0) + '</div><div class="stat-label" data-t="students">Students</div></div>';
+        html += '<div class="stat"><div class="stat-value">' + (c.pending_count || c.pendingCount || 0) + '</div><div class="stat-label" data-t="pendingStudents">Pending</div></div>';
+        html += '</div>';
+
+        // Subject tags
+        var subjects = c.subjects || c.subject_tags || [];
+        if (subjects.length > 0) {
+          html += '<div class="subject-tree-preview">';
+          subjects.forEach(function(s) {
+            var name = typeof s === 'string' ? s : (s.name || s.label || '');
+            if (name) html += '<span class="tag">' + escHtml(name) + '</span>';
+          });
+          html += '</div>';
+        }
+
+        // Actions
+        html += '<div class="course-actions">';
+        html += '<a href="challenge-list-instructor.html?courseId=' + id + '" class="btn btn-primary btn-sm" data-t="challenges">Manage Challenges</a>';
+        html += ' <a href="instructor-analytics.html?courseId=' + id + '" class="btn btn-outline btn-sm" data-t="viewAnalytics">View Analytics</a>';
+        html += ' <a href="edit-subject-tree.html?courseId=' + id + '" class="edit-tree-link">Edit Subject Tree</a>';
+        html += '</div>';
+
+        card.innerHTML = html;
+        grid.appendChild(card);
+      });
+
+      if (window.translatePage) translatePage();
+    }
+
+    // Filtering
+    var filterSearch = document.getElementById('filterSearch');
+    var filterDept = document.getElementById('filterDept');
+
+    function applyFilters() {
+      var query = filterSearch.value.toLowerCase().trim();
+      var dept = filterDept.value;
+
+      var filtered = allCourses.filter(function(c) {
+        if (query && (c.name || '').toLowerCase().indexOf(query) === -1) return false;
+        if (dept && c.department !== dept) return false;
+        return true;
+      });
+      renderCourses(filtered);
+    }
+
+    filterSearch.addEventListener('input', applyFilters);
+    filterDept.addEventListener('change', applyFilters);
+
+    function escHtml(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  })();
+  </script>
+</body>
+</html>

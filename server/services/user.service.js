@@ -1,0 +1,82 @@
+'use strict';
+
+const { NotFoundError, ValidationError } = require('../utils/errors');
+const { RUN_STATUS } = require('../utils/constants');
+
+class UserService {
+  constructor(db, logger) {
+    this.db = db;
+    this.logger = logger;
+  }
+
+  async getProfile(userId) {
+    const user = await this.db('users')
+      .leftJoin('institutions', 'users.institution_id', 'institutions.id')
+      .select(
+        'users.id', 'users.email', 'users.name', 'users.role',
+        'users.profile_image', 'users.preferred_language',
+        'users.tour_completed', 'users.created_at',
+        'institutions.name as institution_name',
+        'institutions.id as institution_id'
+      )
+      .where('users.id', userId)
+      .first();
+
+    if (!user) throw new NotFoundError('User', userId);
+    return user;
+  }
+
+  async updateProfile(userId, updates) {
+    const allowed = ['name', 'profile_image', 'preferred_language', 'tour_completed', 'institution_id'];
+    const filtered = {};
+    for (const key of allowed) {
+      if (updates[key] !== undefined) filtered[key] = updates[key];
+    }
+
+    if (Object.keys(filtered).length === 0) {
+      throw new ValidationError('No valid fields to update');
+    }
+
+    // Validate name: required, max length, no HTML/script tags
+    if (filtered.name !== undefined) {
+      if (typeof filtered.name !== 'string' || filtered.name.trim().length === 0) {
+        throw new ValidationError('Name cannot be empty');
+      }
+      if (filtered.name.length > 100) {
+        throw new ValidationError('Name must be 100 characters or fewer');
+      }
+      // Strip HTML tags to prevent stored XSS
+      filtered.name = filtered.name.replace(/<[^>]*>/g, '').trim();
+      if (filtered.name.length === 0) {
+        throw new ValidationError('Name cannot contain only HTML tags');
+      }
+    }
+
+    // Validate institution_id exists if provided
+    if (filtered.institution_id) {
+      const inst = await this.db('institutions').where({ id: filtered.institution_id }).first();
+      if (!inst) throw new ValidationError('Institution not found');
+    }
+
+    filtered.updated_at = new Date().toISOString();
+    await this.db('users').where({ id: userId }).update(filtered);
+    this.logger.info('Profile updated', { userId, fields: Object.keys(filtered) });
+    return this.getProfile(userId);
+  }
+
+  async getStats(userId) {
+    const [challengesCreated] = await this.db('challenges').where({ creator_id: userId }).count('id as count');
+    const [runsCompleted] = await this.db('challenge_runs').where({ user_id: userId, status: RUN_STATUS.COMPLETED }).count('id as count');
+    const [runsInProgress] = await this.db('challenge_runs').where({ user_id: userId, status: RUN_STATUS.IN_PROGRESS }).count('id as count');
+    const [coursesSubscribed] = await this.db('course_subscriptions').where({ user_id: userId }).count('id as count');
+
+    return {
+      challenges_created: challengesCreated.count,
+      runs_completed: runsCompleted.count,
+      runs_in_progress: runsInProgress.count,
+      courses_subscribed: coursesSubscribed.count,
+    };
+  }
+}
+
+module.exports = { UserService };

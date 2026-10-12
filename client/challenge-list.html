@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI CoReasoning Lab — Challenges</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="assets/logo.png">
+  <style>
+    .challenge-actions { display: flex; gap: 4px; }
+    .challenge-actions .btn { padding: 4px 8px; font-size: 12px; }
+    .empty-state { text-align: center; padding: 48px 20px; color: var(--text-secondary); }
+    .empty-state p { margin-top: 8px; font-size: 14px; }
+    .loading-row td { text-align: center; padding: 32px; color: var(--text-secondary); }
+  </style>
+  <script src="content-compiled/all.js"></script>
+  <script src="content-loader.js"></script>
+  <script src="js/tooltips.js"></script>
+  <script src="js/api-client.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/user-header.js"></script>
+</head>
+<body>
+  <a href="#main-content" class="skip-to-content">Skip to content</a>
+  <header class="topnav">
+    <a href="index.html" class="logo"><img src="assets/logo.png" alt="Logo"> AI CoReasoning Lab</a>
+    <nav>
+      <a href="challenge-list.html" class="active" data-t="challenges">Challenges</a>
+      <a href="course-catalog.html" data-t="courses">Courses</a>
+      <a href="student-analytics.html" data-t="myResults">My Results</a>
+    </nav>
+    <div class="user-area">
+      <a href="interactive-guide.html" class="guide-link" title="Interactive Guide" data-t="guide">Guide</a>
+      <select class="lang-select" aria-label="Select language"><option value="en">EN</option><option value="he">HE</option><option value="fr">FR</option><option value="de">DE</option><option value="es">ES</option></select>
+      <span style="background:#e8eaf6;color:#1a237e;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px" data-t="student">Student</span>
+      <span id="userInstitution" style="font-size:12px;color:#1a237e;background:#e8eaf6;padding:2px 10px;border-radius:12px;font-weight:600;"></span>
+      <span id="userName">—</span>
+      <a href="profile.html" aria-label="User profile"><div class="avatar" id="userAvatar">?</div></a>
+      <a href="#" class="btn-logout" onclick="API.auth.logout().then(()=>window.location.href='/login.html').catch(()=>window.location.href='/login.html');return false;" style="margin-left:8px;background:var(--primary);border:none;border-radius:var(--radius);padding:5px 14px;font-size:12px;color:#fff;cursor:pointer;text-decoration:none;font-weight:600;" data-t="logout">Logout</a>
+    </div>
+  </header>
+
+  <main class="page" id="main-content">
+    <div class="page-header flex-between">
+      <div>
+        <h1 data-t="challenges">Challenges</h1>
+        <p data-t="challengeListDesc">Browse, filter, and run challenges from your courses</p>
+      </div>
+      <a href="create-challenge.html" class="btn btn-primary" data-t="createChallenge" id="createChallengeBtn" style="display:none">+ Create Challenge</a>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <input type="search" id="filterSearch" class="form-control" data-t-placeholder="searchChallenges" placeholder="Search challenges...">
+      <select id="filterCourse" class="form-control">
+        <option value="" data-t="allCourses">All Courses</option>
+      </select>
+      <select id="filterType" class="form-control">
+        <option value="" data-t="allTypes">All Types</option>
+        <option value="practice" data-t="practice">Practice</option>
+        <option value="assessment" data-t="assessment">Assessment</option>
+      </select>
+      <select id="filterVisibility" class="form-control">
+        <option value="" data-t="allVisibility">All Visibility</option>
+        <option value="public" data-t="public">Public</option>
+        <option value="private" data-t="private">Private</option>
+      </select>
+      <select id="filterStatus" class="form-control">
+        <option value="" data-t="allStatus">All Status</option>
+        <option value="not_started" data-t="notStarted">Not Started</option>
+        <option value="in_progress" data-t="inProgress">In Progress</option>
+        <option value="completed" data-t="completed">Completed</option>
+      </select>
+    </div>
+
+    <!-- Challenge Table -->
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th data-t="challenge" data-tooltip="colChallenge">Challenge</th>
+              <th data-t="course" data-tooltip="colCourse">Course</th>
+              <th class="hide-mobile" data-t="type" data-tooltip="colType">Type</th>
+              <th class="hide-mobile" data-t="visibility" data-tooltip="colVisibility">Visibility</th>
+              <th class="hide-mobile" data-t="created" data-tooltip="colCreated">Created</th>
+              <th class="hide-mobile" data-t="creator" data-tooltip="colCreator">Creator</th>
+              <th class="hide-mobile" data-t="lastAttempt" data-tooltip="colLastAttempt">Last Attempt</th>
+              <th data-t="status" data-tooltip="colStatus">Status</th>
+              <th data-t="actions" data-tooltip="colActions">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="challengeTableBody">
+            <tr class="loading-row"><td colspan="10">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/tour.js"></script>
+  <script src="js/help-popups.js"></script>
+  <script>
+  (function() {
+    'use strict';
+
+    var currentUser = null;
+    var allChallenges = [];
+    var tbody = document.getElementById('challengeTableBody');
+
+    // ── Wait for user-header.js to populate _currentUser ──
+    (function waitForUser() {
+      var check = setInterval(function() {
+        if (window._currentUser) {
+          clearInterval(check);
+          currentUser = window._currentUser;
+          // Show Create Challenge button for instructors
+          if (currentUser.role === 'instructor') {
+            var createBtn = document.getElementById('createChallengeBtn');
+            if (createBtn) createBtn.style.display = '';
+          }
+          loadCourses();
+          loadChallenges();
+        }
+      }, 100);
+      // Fallback timeout
+      setTimeout(function() { clearInterval(check); if (!currentUser) { loadCourses(); loadChallenges(); } }, 2000);
+    })();
+
+    // ── Load courses into filter dropdown ──
+    function loadCourses() {
+      API.courses.list({ subscribed: true }).then(function(data) {
+        var courses = data.courses || data || [];
+        var sel = document.getElementById('filterCourse');
+        courses.forEach(function(c) {
+          var opt = document.createElement('option');
+          opt.value = c._id || c.id || c.name;
+          opt.textContent = c.name;
+          sel.appendChild(opt);
+        });
+        // Pre-select from URL if present
+        var params = new URLSearchParams(window.location.search);
+        var preselect = params.get('courseId');
+        if (preselect) {
+          sel.value = preselect;
+        }
+      }).catch(function(err) {
+        console.warn('Could not load courses:', err.message);
+      });
+    }
+
+    // ── Load challenges from API ──
+    function loadChallenges() {
+      tbody.innerHTML = '<tr class="loading-row"><td colspan="10">Loading...</td></tr>';
+      API.challenges.list().then(function(data) {
+        allChallenges = data.challenges || data || [];
+        applyFilters();
+      }).catch(function(err) {
+        tbody.innerHTML = '<tr class="loading-row"><td colspan="10" style="color:var(--danger);">Failed to load challenges: ' + escHtml(err.message) + '</td></tr>';
+      });
+    }
+
+    // ── Render table rows ──
+    function renderChallenges(list) {
+      if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="empty-state"><div>📋</div><p data-t="noMatchingChallenges">No challenges match the selected filters.</p></td></tr>';
+        if (window.translatePage) translatePage();
+        return;
+      }
+
+      tbody.innerHTML = '';
+      list.forEach(function(ch) {
+        var tr = document.createElement('tr');
+
+        // Badge column
+        var tdBadge = document.createElement('td');
+        var isNew = ch.is_new || isRecent(ch.created_at || ch.createdAt);
+        if (isNew && getStatus(ch) === 'not_started') {
+          tdBadge.innerHTML = '<span class="badge badge-new" data-t="new">NEW</span>';
+        }
+        tr.appendChild(tdBadge);
+
+        // Challenge name
+        var tdName = document.createElement('td');
+        tdName.setAttribute('dir', 'auto');
+        tdName.innerHTML = '<strong>' + escHtml(ch.title || ch.name || 'Untitled') + '</strong>';
+        tr.appendChild(tdName);
+
+        // Course
+        var tdCourse = document.createElement('td');
+        tdCourse.setAttribute('dir', 'auto');
+        tdCourse.textContent = ch.course_name || ch.courseName || '—';
+        tr.appendChild(tdCourse);
+
+        // Type
+        var tdType = document.createElement('td');
+        tdType.className = 'hide-mobile';
+        var cType = (ch.type || ch.challenge_type || 'practice').toLowerCase();
+        tdType.innerHTML = '<span class="badge badge-' + cType + '" data-t="' + cType + '">' + capitalize(cType) + '</span>';
+        tr.appendChild(tdType);
+
+        // Visibility
+        var tdVis = document.createElement('td');
+        tdVis.className = 'hide-mobile';
+        var vis = (ch.visibility || 'public').toLowerCase();
+        tdVis.innerHTML = '<span class="badge badge-' + vis + '" data-t="' + vis + '">' + capitalize(vis) + '</span>';
+        tr.appendChild(tdVis);
+
+        // Created date
+        var tdCreated = document.createElement('td');
+        tdCreated.className = 'hide-mobile';
+        tdCreated.textContent = formatDate(ch.created_at || ch.createdAt);
+        tr.appendChild(tdCreated);
+
+        // Creator
+        var tdCreator = document.createElement('td');
+        tdCreator.className = 'hide-mobile';
+        var creatorName = ch.creator_name || ch.creatorName || '';
+        if (currentUser && (ch.creator_id === currentUser.id || ch.creatorId === currentUser.id)) {
+          creatorName = t('me') || 'Me';
+        }
+        tdCreator.textContent = creatorName || '—';
+        tr.appendChild(tdCreator);
+
+        // Last attempt
+        var tdAttempt = document.createElement('td');
+        tdAttempt.className = 'hide-mobile';
+        tdAttempt.textContent = (ch.last_attempt_at || ch.last_attempt) ? formatDate(ch.last_attempt_at || ch.last_attempt) : '—';
+        tr.appendChild(tdAttempt);
+
+        // Status
+        var tdStatus = document.createElement('td');
+        var status = getStatus(ch);
+        var statusClass = 'status-' + status.replace('_', '-');
+        var statusKey = statusKeyMap[status] || 'notStarted';
+        tdStatus.innerHTML = '<span class="status ' + statusClass + '" data-t="' + statusKey + '">' + statusLabels[status] + '</span>';
+        tr.appendChild(tdStatus);
+
+        // Actions
+        var tdActions = document.createElement('td');
+        tdActions.innerHTML = buildActions(ch, status);
+        tr.appendChild(tdActions);
+
+        tbody.appendChild(tr);
+      });
+
+      if (window.translatePage) translatePage();
+    }
+
+    // ── Status helpers ──
+    var statusKeyMap = { not_started: 'notStarted', in_progress: 'inProgress', completed: 'completed' };
+    var statusLabels = { not_started: 'Not Started', in_progress: 'In Progress', completed: 'Completed' };
+
+    function getStatus(ch) {
+      // run_status is per-user run status (enriched by API); ch.status is challenge status
+      if (ch.run_status) return ch.run_status.toLowerCase().replace(/ /g, '_').replace('-', '_');
+      return 'not_started';
+    }
+
+    // ── Build action buttons ──
+    function buildActions(ch, status) {
+      var id = ch._id || ch.id;
+      var cType = (ch.type || ch.challenge_type || 'practice').toLowerCase();
+      var vis = (ch.visibility || 'public').toLowerCase();
+      var isOwner = currentUser && (ch.creator_id === currentUser.id || ch.creatorId === currentUser.id);
+      var html = '<div class="challenge-actions">';
+
+      if (status === 'not_started') {
+        html += '<a href="challenge-run.html?challengeId=' + id + '" class="btn btn-teal btn-sm" data-t="start">Start</a>';
+      } else if (status === 'in_progress') {
+        html += '<a href="challenge-run.html?runId=' + (ch.run_id || id) + '" class="btn btn-outline btn-sm" data-t="resume">Resume</a>';
+      } else if (status === 'completed') {
+        html += '<a href="challenge-report.html?runId=' + (ch.run_id || id) + '" class="btn btn-outline btn-sm" data-t="results">Results</a>';
+        // Practice challenges always allow running again
+        if (cType === 'practice') {
+          html += ' <a href="challenge-run.html?challengeId=' + id + '" class="btn btn-outline btn-sm" data-t="runAgain">Run Again</a>';
+        }
+      }
+
+      // Private challenges: owner gets edit & delete
+      if (vis === 'private' && isOwner) {
+        html += ' <a href="create-challenge.html?id=' + id + '" class="btn btn-outline btn-sm" title="' + (t('edit') || 'Edit') + '" aria-label="' + (t('edit') || 'Edit') + '">&#9998;</a>';
+        html += ' <button class="btn btn-outline btn-sm" title="' + (t('deleteChallenge') || 'Delete') + '" style="color:var(--danger);" onclick="deleteChallenge(\'' + id + '\')" aria-label="' + (t('deleteChallenge') || 'Delete') + '">&#128465;</button>';
+      }
+
+      // Clone button — available for any visible challenge
+      html += ' <a href="#" class="btn btn-outline btn-sm" title="' + (t('clone') || 'Clone') + '" onclick="cloneChallenge(\'' + id + '\');return false;" aria-label="' + (t('clone') || 'Clone') + '">&#10697;</a>';
+
+      html += '</div>';
+      return html;
+    }
+
+    // ── Reusable confirmation modal ──
+    function showConfirmModal(title, message, onConfirm) {
+      var overlay = document.createElement('div');
+      overlay.className = 'confirm-modal-overlay';
+      overlay.innerHTML = '<div class="confirm-modal"><h3>' + title + '</h3><p>' + message + '</p><div class="confirm-modal-actions"><button class="btn btn-outline" id="confirmCancel">' + (t('cancel') || 'Cancel') + '</button><button class="btn btn-danger" id="confirmOk">' + (t('confirm') || 'Confirm') + '</button></div></div>';
+      document.body.appendChild(overlay);
+      overlay.querySelector('#confirmCancel').onclick = function() { overlay.remove(); };
+      overlay.querySelector('#confirmOk').onclick = function() { overlay.remove(); onConfirm(); };
+      overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+      document.addEventListener('keydown', function handler(e) { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', handler); } });
+    }
+
+    // ── Delete challenge ──
+    window.deleteChallenge = function(id) {
+      showConfirmModal(
+        t('deleteChallenge') || 'Delete Challenge',
+        t('confirmDeleteChallenge') || 'Are you sure you want to delete this challenge?',
+        function() {
+          API.challenges.delete(id).then(function() {
+            allChallenges = allChallenges.filter(function(c) { return (c._id || c.id) !== id; });
+            applyFilters();
+          }).catch(function(err) {
+            showToast((t('deleteFailed') || 'Delete failed') + ': ' + err.message, 'error');
+          });
+        }
+      );
+    };
+
+    // ── Clone challenge ──
+    window.cloneChallenge = function(id) {
+      API.post('/challenges/' + id + '/clone').then(function(cloned) {
+        window.location.href = 'create-challenge.html?id=' + (cloned._id || cloned.id);
+      }).catch(function(err) {
+        showToast((t('cloneFailed') || 'Clone failed') + ': ' + err.message, 'error');
+      });
+    };
+
+    // ── Filtering ──
+    var filterSearch = document.getElementById('filterSearch');
+    var filterCourse = document.getElementById('filterCourse');
+    var filterType = document.getElementById('filterType');
+    var filterVisibility = document.getElementById('filterVisibility');
+    var filterStatus = document.getElementById('filterStatus');
+
+    function applyFilters() {
+      var query = filterSearch.value.toLowerCase().trim();
+      var course = filterCourse.value;
+      var type = filterType.value;
+      var vis = filterVisibility.value;
+      var status = filterStatus.value;
+
+      var filtered = allChallenges.filter(function(ch) {
+        if (query) {
+          var text = ((ch.title || '') + ' ' + (ch.course_name || '') + ' ' + (ch.creator_name || '')).toLowerCase();
+          if (text.indexOf(query) === -1) return false;
+        }
+        if (course) {
+          var chCourse = ch.course_id || ch.courseId || '';
+          var chCourseName = ch.course_name || ch.courseName || '';
+          if (chCourse !== course && chCourseName !== course) return false;
+        }
+        if (type) {
+          var chType = (ch.type || ch.challenge_type || '').toLowerCase();
+          if (chType !== type) return false;
+        }
+        if (vis) {
+          var chVis = (ch.visibility || '').toLowerCase();
+          if (chVis !== vis) return false;
+        }
+        if (status) {
+          var chStatus = getStatus(ch);
+          if (chStatus !== status) return false;
+        }
+        return true;
+      });
+
+      renderChallenges(filtered);
+    }
+
+    filterSearch.addEventListener('input', applyFilters);
+    filterCourse.addEventListener('change', applyFilters);
+    filterType.addEventListener('change', applyFilters);
+    filterVisibility.addEventListener('change', applyFilters);
+    filterStatus.addEventListener('change', applyFilters);
+
+    // ── Utilities ──
+    function escHtml(s) {
+      var d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    function capitalize(s) {
+      return s.charAt(0).toUpperCase() + s.slice(1);
+    }
+
+    function formatDate(d) {
+      if (!d) return '—';
+      try {
+        var dt = new Date(d);
+        return dt.toLocaleDateString(getLang() || undefined, { month: 'short', day: 'numeric' });
+      } catch (e) { return d; }
+    }
+
+    function isRecent(dateStr) {
+      if (!dateStr) return false;
+      var d = new Date(dateStr);
+      var now = new Date();
+      return (now - d) < 7 * 24 * 60 * 60 * 1000; // within last 7 days
+    }
+  })();
+  </script>
+</body>
+</html>

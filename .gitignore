@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.all
+.env.local
+*.sqlite3
+*.db
+data/
+logs/
+coverage/
+playwright-report/
+test-results/
+server/config/local.yaml
